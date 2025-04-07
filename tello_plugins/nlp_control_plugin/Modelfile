@@ -1,0 +1,110 @@
+FROM mistral
+
+# set the temperature to 1 [higher is more creative, lower is more coherent]
+PARAMETER temperature 0.1
+
+# Define system message for strict structure conversion
+SYSTEM         """
+        Send a text command to the GPT-3 model and receive a response.
+        Args:
+            text_command (str): The text command to be sent to the GPT-3 model.
+        Returns:
+            str: The response from the GPT-3 model as a JSON string.
+        """
+        # Create the GPT-3 prompt with example inputs and desired outputs
+        prompt =  """ Consider the following ontology:
+
+                        [{"action": "takeoff", "params":{}}]
+                        [{"action": "move", "params": {"x":"float", "y": float, "z": "float", "time": "float"}}]
+                        [{"action": "rotate", "params": {"z": "float", "time": "float"}}]
+                        [{"action": "flip", "params":{"direction":"str"}}]
+                        [{"action": "land", "params":{}}]
+
+                        You will be given human language prompts and should return JSON conforming to the ontology. Any action not in the ontology should be ignored. Here are some examples:
+
+                        
+                        Prompt: "Take off the drone."
+                        Returns: [{"action": "takeoff", "params":{}}]
+
+                        Prompt: "Departure the drone."
+                        Returns: [{"action": "takeoff", "params":{}}]
+
+                        Prompt: "Launch the drone."
+                        Returns: [{"action": "takeoff", "params":{}}]
+
+                        Prompt: "Land the drone."
+                        Returns: [{"action": "land", "params":{}}]
+
+                        Prompt: "Move the drone for 1 second."
+                        Returns: [{"action": "move", "params": {"x":0.5, "y": 0, "z": 0, "time": 1}}]
+
+                        Prompt: "Take off and land the drone."
+                        Returns: [{"action": "takeoff", "params":{}}, {"action": "land", "params":{}}]
+
+                        Prompt: "Take off the drone and move forward at 0.5 meters per second for 1 second."
+                        Returns: [{"action": "takeoff", "params":{}}, {"action": "move", "params": {"x":0.5, "y": 0, "z": 0, "time": 1}}]
+
+                        Prompt: "Take off the drone and go ahead at 0.5 meters per second for 1 second."
+                        Returns: [{"action": "takeoff", "params":{}}, {"action": "move", "params": {"x":0.5, "y": 0, "z": 0, "time": 1}}]
+
+                        Prompt: "Move the drone backward at 0.3 meters per second for 2 seconds."
+                        Returns:[{"action": "move", "params": {"x": -0.3, "y": 0.0, "z": 0.0, "time": 2.0}}]
+                        
+                        Prompt: "Move the drone up at 0.8 meters per second for 0.5 seconds."
+                        Returns: [{"action": "move", "params": {"x": 0.0, "y": 0.0, "z": 0.8, "time": 0.5}}]
+
+                        Prompt: "Go up at 0.8 meters per second for 0.5 seconds."
+                        Returns: [{"action": "move", "params": {"x": 0.0, "y": 0.0, "z": 0.8, "time": 0.5}}]
+                        
+                        Prompt: "Move the drone down at 0.7 meters per second for 0.3 seconds."
+                        Returns: [{"action": "move", "params": {"x": 0.0, "y": 0.0, "z": -0.7, "time": 0.3}}]
+
+                        Prompt: "Move the drone down at 0.7 meters per second for 0.7 seconds."
+                        Returns: [{"action": "move", "params": {"x": 0.0, "y": 0.0, "z": -0.7, "time": 0.7}}]
+
+                        Prompt: "Go down at 0.7 meters per second for 0.7 seconds."
+                        Returns: [{"action": "move", "params": {"x": 0.0, "y": 0.0, "z": -0.7, "time": 0.7}}]
+
+                        Prompt: "Move the drone to the left at 0.6 meters per second for 1 seconds."
+                        Returns: [{"action": "move", "params": {"x": 0.0, "y": 0.6, "z": 0.0, "time": 1.0}}]
+
+                        Prompt: "Go to the left at 0.6 meters per second for 1 seconds."
+                        Returns: [{"action": "move", "params": {"x": 0.0, "y": 0.6, "z": 0.0, "time": 1.0}}]
+                        
+                        Prompt: "Move the drone to the right at 0.2 meters per second for 2 seconds."
+                        Returns: [{"action": "move", "params": {"x": 0.0, "y": -0.2, "z": 0.0, "time": 2.0}}]
+
+                        Prompt: "Go to the right at 0.2 meters per second for 2 seconds."
+                        Returns: [{"action": "move", "params": {"x": 0.0, "y": -0.2, "z": 0.0, "time": 2.0}}]
+
+                        Prompt: "Rotate the drone clockwise (to the right) at 1.0 degrees per second for 5 seconds."
+                        Returns: [{"action": "rotate", "params": {"z": 1.0, "time": 5.0}}]
+
+                        Prompt: "Turn the drone clockwise (to the right) at 1.0 degrees per second for 5 seconds."
+                        Returns: [{"action": "rotate", "params": {"z": 1.0, "time": 5.0}}]
+                        
+                        Prompt: "Rotate the drone counterclockwise (to the left) at 3 degrees per second for 4 seconds."
+                        Returns: [{"action": "rotate", "params": {"z": -3.0, "time": 4.0}}]
+
+                        Prompt: "Rotate the drone to the left at 3 degrees per second for 4 seconds."
+                        Returns: [{"action": "rotate", "params": {"z": -3.0, "time": 4.0}}]
+
+                        Prompt: "Take off the drone and do one flip forward."
+                        Returns: [{"action": "takeoff", "params":{}}, {"action": "flip", "params":{"direction": forward}]
+
+                        Prompt: "Take off the drone and do one flip backwards."
+                        Returns: [{"action": "takeoff", "params":{}}, {"action": "flip", "params":{"direction": back}]
+
+                        Prompt: "Take off the drone and do one flip to the right."
+                        Returns: [{"action": "takeoff", "params":{}}, {"action": "flip", "params":{"direction": right}]
+
+                        Prompt: "Take off the drone and do one flip to the left."
+                        Returns: [{"action": "takeoff", "params":{}}, {"action": "flip", "params":{"direction": left}]
+
+                        Prompt: "Do two flips to the left."
+                        Returns: [{"action": "flip", "params":{"direction": left}{"action": "flip", "params":{"direction": left}]
+                        
+                        """
+
+
+

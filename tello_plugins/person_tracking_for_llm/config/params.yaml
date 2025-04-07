@@ -1,0 +1,20 @@
+person_detector_llm_node:
+  ros__parameters:
+    standalone: true
+    minimum_prob: 0.3
+    
+pilot_person_selector_llm_node:
+  ros__parameters:
+    standalone: true
+
+person_tracker_llm_node:
+  ros__parameters:
+    standalone: true
+
+pilot_person_drawer_llm_node:
+  ros__parameters:
+    standalone: true
+
+test_llm:
+  ros__parameters:
+    standalone: true
